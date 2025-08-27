@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Optional, Annotated, Union
 from sqlmodel import SQLModel
 from pydantic import EmailStr, StringConstraints, field_validator, ValidationInfo
-from app.models import Role, Gender, CalificacionTipo  # asegúrate de importar esto
+from app.models import Role, Gender  # asegúrate de importar esto
 
 # Tipos validados con restricciones
 CedulaStr = Annotated[str, StringConstraints(min_length=7, max_length=12)]
@@ -29,11 +29,10 @@ class UserLogin(SQLModel):
     username: str
     password: str
 
+
 # ------------------------------------------
 # Esquemas de Usuario
 # ------------------------------------------
-
-
 
 class UserCreate(SQLModel):
     """Esquema para creación de usuarios"""
@@ -115,39 +114,47 @@ class UserUpdate(SQLModel):
 
 
 # ------------------------------------------
-# Esquemas de Materias y Calificaciones
+# Esquemas de Subjects
+# ------------------------------------------
+
+class SubjectBase(SQLModel):
+    name_subject: str
+    description: Optional[str] = None
+
+
+class SubjectCreate(SubjectBase):
+    professor_id: int
+
+
+class SubjectPublic(SubjectBase):
+    subject_id: int
+    professor_id: int
+
+
+class SubjectHistory(SQLModel):
+    materia: str
+    notas: list[float]
+    promedio: float
+
+
+
+# ------------------------------------------
+# Esquemas de Scores
 # ------------------------------------------
 
 class ScoreBase(SQLModel):
-    """Esquema base para materias"""
-    materia: str
-    description: Optional[str] = None
-
-class ScoreCreate(ScoreBase):
-    """Esquema para creación de materias"""
-    professor_id: int
-
-class ScorePublic(ScoreBase):
-    """Esquema público para materias"""
-    score_id: int
-    professor_id: int
-
-class CalificacionBase(SQLModel):
-    """Esquema base para calificaciones"""
     valor: float
-    tipo: CalificacionTipo
+    score_type: str
     fecha: Optional[date] = None
     comentario: Optional[str] = None
 
-class CalificacionCreate(CalificacionBase):
-    """Esquema para creación de calificaciones"""
+class ScoreCreate(ScoreBase):
     student_id: int
-    score_id: int
-    
+    subject_id: int
 
-class CalificacionPublic(CalificacionBase):
-    """Esquema público para calificaciones"""
-    calificacion_id: int
-    student_id: int
+
+class ScorePublic(ScoreBase):
     score_id: int
+    student_id: int
+    subject_id: int
     professor_id: int

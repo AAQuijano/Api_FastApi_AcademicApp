@@ -86,13 +86,21 @@ def create_app(engine_override=None):
                 detail="Credenciales inválidas",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        
+        #Obtener el enum del rol desde la relacion
+        role_enum = user.role_ref.role if user.role_ref else None
+        if not role_enum:
+            raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error en configuración de roles"
+        )
 
         # Generar token de acceso
         access_token_expires = timedelta(minutes=auth.settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = auth.create_access_token(
             data={
                 "sub": user.name_user,
-                "role": user.role,
+                "role": role_enum,
                 "user_id": user.user_id  # Usamos el campo unificado user_id
             },
             expires_delta=access_token_expires

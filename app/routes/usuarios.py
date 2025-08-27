@@ -1,12 +1,14 @@
 #usuarios.py
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func, exists, and_
 from app import models, schemas
 from app.db import get_db
 from app.auth.auth import get_current_user, get_current_admin_user
 from app.auth.permissions import require_role_or_none
+from app.auth.utils import get_gender_id, get_role_id, get_role_enum
 from typing import Annotated, Optional
+from sqlalchemy.orm import aliased
 
 router = APIRouter(prefix="/usuarios", tags=["usuarios"])
 
@@ -78,20 +80,26 @@ def create_user(user: schemas.UserCreate,
         #         detail="Carrera requerida para estudiantes"
         #     )
 
+        #Convertir enums en ID
+        role_id = get_role_id(session, user.role)
+        gender_id = get_gender_id(session, user.gender)
+
 
         hashed_password = models.pwd_context.hash(user.password)
         age = calculate_age(user.birth_date)
 
         db_user = models.User(
-            **user.model_dump(exclude={"password"}),
+            **user.model_dump(exclude={"password", "role", "gender"}),
             hashed_password=hashed_password,
-            age=age
+            age=age,
+            role_id=role_id,
+            gender_id=gender_id
         )
         session.add(db_user)
         session.commit()
         session.refresh(db_user)
 
-        return schemas.UserPublic.model_validate(db_user)
+        return convert_user_to_public(db_user)
 
     except HTTPException:
         raise
@@ -103,14 +111,22 @@ def create_user(user: schemas.UserCreate,
         ) from e
 
 
+def convert_user_to_public(user: models.User) -> schemas.UserPublic:
+    """Convierte un modelo User a UserPublic con enums"""
+    return schemas.UserPublic(
+        **user.model_dump(exclude={"gender_id", "role_id"}),
+        gender=user.gender_ref.gender if user.gender_ref else None,  # ← CORRECCIÓN
+        role=user.role_ref.role if user.role_ref else None,          # ← CORRECCIÓN
+    )
+
 @router.get("/me", response_model=schemas.UserPublic)
 async def read_users_me(current_user: user_dep):
-    return schemas.UserPublic.model_validate(current_user)
+    return convert_user_to_public(current_user)
 
 
 @router.get("/{user_id}", response_model=schemas.UserPublic)
 async def read_user(user_id: int, session: session_dep, current_user: user_dep):
-    if current_user.role != models.Role.ADMIN and current_user.user_id != user_id:
+    if get_role_enum(session, current_user.role_id) != models.Role.ADMIN and current_user.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para ver este usuario"
@@ -118,7 +134,7 @@ async def read_user(user_id: int, session: session_dep, current_user: user_dep):
     user = session.get(models.User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return schemas.UserPublic.model_validate(user)
+    return convert_user_to_public(user)
 
 
 @router.patch("/{user_id}", response_model=schemas.UserPublic)
@@ -128,7 +144,9 @@ async def update_user(
     session: session_dep,
     current_user: user_dep
 ):
-    if current_user.role != models.Role.ADMIN and user_id != current_user.user_id:
+    current_user_role = get_role_enum(session, current_user.role_id)
+    #Actualizar endpoint
+    if current_user_role != models.Role.ADMIN and user_id != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo puedes modificar tu propio perfil"
@@ -141,18 +159,23 @@ async def update_user(
     update_data = user_update.model_dump(exclude_unset=True)
     update_data = {k: v for k, v in update_data.items() if v is not None}
 
+    user_role = get_role_enum(session, user.role_id)
 
     # Validaciones manuales porque 'role' no viene en PATCH
-    if "specialization" in update_data and user.role != models.Role.PROFESSOR:
+    if "specialization" in update_data and user_role != models.Role.PROFESSOR:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Solo los profesores pueden tener especialización"
         )
-    if "career" in update_data and user.role != models.Role.STUDENT:
+    if "career" in update_data and user_role != models.Role.STUDENT:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Solo los estudiantes pueden tener carrera"
         )
+    
+    if "birth_date" in update_data:
+        update_data["age"] = calculate_age(update_data["birth_date"])
+
 
     if 'password' in update_data:
         update_data['hashed_password'] = models.pwd_context.hash(update_data.pop('password'))
@@ -162,7 +185,7 @@ async def update_user(
 
     session.commit()
     session.refresh(user)
-    return schemas.UserPublic.model_validate(user)
+    return convert_user_to_public(user)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -172,6 +195,7 @@ async def delete_user(user_id: int, session: session_dep, current_user: admin_de
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     session.delete(user)
     session.commit()
+    return None
 
 
 @router.get("/", response_model=list[schemas.UserPublic])
@@ -184,29 +208,76 @@ async def list_users(
     users = session.exec(
         select(models.User).order_by(models.User.name_user).offset(skip).limit(limit)
     ).all()
-    return [schemas.UserPublic.model_validate(u) for u in users]
+    return [convert_user_to_public(u) for u in users]
 
 
-@router.get("/{user_id}/historial")
+@router.get("/{user_id}/historial", response_model=list[schemas.SubjectHistory])
 def obtener_historial_academico(user_id: int, session: session_dep, current_user: user_dep):
+    current_user_role = get_role_enum(session, current_user.role_id)
+    allowed_roles = [models.Role.ADMIN,models.Role.PROFESSOR]
+    if current_user_role not in allowed_roles :
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No tienes permiso para ver historial"
+        )
+    
+    # Verificar que el usuario existe y es estudiante
     user = session.get(models.User, user_id)
-    if not user or user.role != models.Role.STUDENT:
-        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    #verificar que es estudiante
+    user_role = get_role_enum(session, user.role_id)
+    if user_role != models.Role.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El historial académico solo está disponible para estudiantes"
+            )
+    # Usar alias para evitar conflicto de nombres
+    Subject = aliased(models.Subject)
+    if current_user_role == models.Role.PROFESSOR:
+        #Profesores: solo pueden ver notas de sus materias
+        resultados = session.exec(
+            select(
+                Subject.name_subject,
+                models.Score.valor
+            )
+            .join(models.Score, models.Score.subject_id == Subject.subject_id)
+            .where(and_(
+                models.Score.student_id == user_id,
+                Subject.professor_id == current_user.user_id  # ← ¡FILTRO IMPORTANTE!
+            ))
+            .order_by(Subject.name_subject)
+        ).all()
 
+    else: 
+        #Admin: puede ver todas las notas
+        resultados = session.exec(
+            select(
+                Subject.name_subject,
+                models.Score.valor
+            )
+            .join(models.Score, models.Score.subject_id == Subject.subject_id)
+            .where(models.Score.student_id == user_id)
+            .order_by(Subject.name_subject)
+        ).all() 
+
+    # Si no hay notas, devolver lista vacía
+    if not resultados:
+        return []
+    
+
+    # Construir historial
     historial = {}
-    for cal in user.calificaciones_as_student:
-        materia = cal.score.materia if cal.score else "Desconocida"
-        if materia not in historial:
-            historial[materia] = []
-        historial[materia].append(cal.valor)
+    for materia_nombre, valor in resultados:
+        historial.setdefault(materia_nombre, []).append(valor)
 
     from statistics import mean
-    resultado = []
-    for materia, notas in historial.items():
-        resultado.append({
-            "materia": materia,
-            "notas": notas,
-            "promedio": round(mean(notas), 2)
-        })
-
-    return resultado
+    return [
+        schemas.SubjectHistory(
+            materia=materia,
+            notas=notas,
+            promedio=round(mean(notas), 2) if notas else 0
+        )
+        for materia, notas in historial.items()
+    ]

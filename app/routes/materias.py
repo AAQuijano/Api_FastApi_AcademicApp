@@ -1,4 +1,4 @@
-
+#subjects.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select, col
 from app import models, schemas

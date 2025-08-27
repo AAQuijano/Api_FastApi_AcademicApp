@@ -1,6 +1,6 @@
 #models.py
 from datetime import date
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 from typing import Optional, List
 from passlib.context import CryptContext
 from enum import Enum
@@ -24,33 +24,31 @@ class Gender(str, Enum):
     MALE = "male"
     FEMALE = "female"
 
-class CalificacionTipo(str, Enum):
-    """Tipos de calificaciones académicas"""
-    PARCIAL = "parcial"
-    NOTA_FINAL = "nota_final"
-    PRACTICA = "practica"
-    QUIZ = "quiz"
-    LABORATORIO = "laboratorio"
-    PROYECTO = "proyecto"
-    SEMESTRAL = "semestral"
-    TAREA = "tarea"
-    PRESENTACION = "presentacion"
+
+class Role_User(SQLModel, table=True):
+    role_id: Optional[int] = Field(default=None, primary_key=True)
+    role: Role = Field(..., index=True, description="Rol del usuario en el sistema")
+    users: List["User"] = Relationship(back_populates="role_ref")
 
 
-class StudentScoreLink(SQLModel, table=True):
-    """Tabla de relación muchos-a-muchos entre estudiantes y materias"""
+class Gender_User(SQLModel, table = True):
+    gender_id: Optional[int] = Field(default=None, primary_key=True)
+    gender: Gender = Field(..., index=True, description="Genero de usuario en el sistema")
+    users: List["User"] = Relationship(back_populates="gender_ref")
+
+
+class StudentSubjectLink(SQLModel, table=True):
+    __tablename__ = "student_subject_link"
+    """Tabla de relación entre estudiantes y materias"""
     student_id: int = Field(
-        ..., 
         foreign_key="user.user_id", 
-        primary_key=True,
-        description="ID del estudiante"
+        primary_key=True
     )
-    score_id: int = Field(
-        ..., 
-        foreign_key="score.score_id", 
-        primary_key=True,
-        description="ID de la materia"
+    subject_id: int = Field(
+        foreign_key="subject.subject_id", 
+        primary_key=True
     )
+  
 
 class UserBase(SQLModel):
     """Campos base compartidos por todos los usuarios"""
@@ -58,10 +56,11 @@ class UserBase(SQLModel):
     name_user: str = Field(..., unique=True, index=True, description="Nombre de usuario para login")
     cedula: str = Field(..., unique=True, index=True, description="Número de identificación único")
     email: str = Field(..., unique=True, index=True, description="Correo electrónico")
-    gender: Gender = Field(..., description="Género del usuario")
     birth_date: Optional[date] = Field(None, description="Fecha de nacimiento")
     age: Optional[int] = Field(None, description="Edad calculada automáticamente")
-    role: Role = Field(..., index=True, description="Rol del usuario en el sistema")
+    gender_id: int = Field(..., foreign_key="gender_user.gender_id", description="Genero del usuario" )
+    role_id: int = Field(..., foreign_key="role_user.role_id", description="Rol del usuario")
+    
 
 class User(UserBase, table=True):
     """Modelo principal de usuario que representa todos los roles en el sistema"""
@@ -77,23 +76,11 @@ class User(UserBase, table=True):
         description="Carrera de estudiante (solo para estudiantes)"
     )
 
-    # Relaciones
-    scores_as_professor: List["Score"] = Relationship(
-        back_populates="professor",
-        sa_relationship_kwargs={"foreign_keys": "Score.professor_id"}
-    )
-    scores_as_student: List["Score"] = Relationship(
-        back_populates="students",
-        link_model=StudentScoreLink
-    )
-    calificaciones_as_student: List["Calificacion"] = Relationship(
-        back_populates="student",
-        sa_relationship_kwargs={"foreign_keys": "Calificacion.student_id"}
-    )
-    calificaciones_as_professor: List["Calificacion"] = Relationship(
-        back_populates="professor",
-        sa_relationship_kwargs={"foreign_keys": "Calificacion.professor_id"}
-    )
+    #Relaciones
+    subjects_taught: List["Subject"] = Relationship(back_populates="professor")
+    subjects_enrolled: List["Subject"] = Relationship(back_populates="students",link_model=StudentSubjectLink)
+    scores_given: List["Score"] = Relationship(back_populates="professor")
+    scores_received: List["Score"] = Relationship(back_populates="student")
 
     # Métodos de seguridad
     def set_password(self, password: str):
@@ -104,79 +91,69 @@ class User(UserBase, table=True):
         """Verifica si la contraseña coincide con el hash almacenado"""
         return pwd_context.verify(password, self.hashed_password)
 
+    # Relaciones a catálogos
+    role_ref: Optional[Role_User] = Relationship(back_populates="users")    # <-- nuevo
+    gender_ref: Optional[Gender_User] = Relationship(back_populates="users")# <-- nuevo
     def __repr__(self):
-        return f"<User {self.name_user} ({self.role})>"
+        role_str = self.role_ref.role.value if self.role_ref else f"role_id={self.role_id}"  # <-- corregido
+        return f"<User {self.name_user} ({role_str})>"
 
 
-
-class ScoreBase(SQLModel):
-    """Campos base para las materias académicas"""
-    materia: str = Field(..., index=True, description="Nombre de la materia")
+class SubjectBase(SQLModel):
+    name_subject: str = Field(..., index=True, description="Nombre de la materia")
     description: Optional[str] = Field(
         None, 
         max_length=500,
         description="Descripción detallada de la materia"
     )
 
-class Score(ScoreBase, table=True):
-    """Modelo completo para materias académicas"""
-    score_id: Optional[int] = Field(default=None, primary_key=True)
-    professor_id: int = Field(
+
+class Subject(SubjectBase, table=True):
+    subject_id: Optional[int] = Field(default=None, primary_key=True)
+    professor_id: int = Field(..., foreign_key="user.user_id", description="id del profesor de la materia",index=True)
+
+    #Relaciones
+    professor: Optional[User] = Relationship(back_populates="subjects_taught")
+    students: List[User] = Relationship(back_populates="subjects_enrolled", link_model=StudentSubjectLink)
+    scores: List["Score"] = Relationship(back_populates="subject")
+
+
+class ScoreBase(SQLModel):
+    score_type: str = Field(
         ..., 
-        foreign_key="user.user_id",
-        description="ID del profesor que imparte la materia"
-    )
-    
-    # Relaciones
-    professor: Optional["User"] = Relationship(
-        back_populates="scores_as_professor"
-    )
-    students: List["User"] = Relationship(
-        back_populates="scores_as_student",
-        link_model=StudentScoreLink
-    )
-    calificaciones: List["Calificacion"] = Relationship(
-        back_populates="score"
+        description="Tipo de evaluación/calificación"
     )
 
-class CalificacionBase(SQLModel):
-    """Campos base para las calificaciones"""
     valor: float = Field(
         ..., 
         ge=0, 
         le=100,
         description="Valor numérico de la calificación (0-100)"
     )
+    
     fecha: date = Field(
         default_factory=date.today,
         description="Fecha cuando se registró la calificación"
     )
-    tipo: CalificacionTipo = Field(
-        ..., 
-        description="Tipo de evaluación/calificación"
-    )
+    
     comentario: Optional[str] = Field(
         None, 
         max_length=500,
         description="Comentarios adicionales sobre la calificación"
     )
 
-class Calificacion(CalificacionBase, table=True):
-    calificacion_id: Optional[int] = Field(default=None, primary_key=True)
-    student_id: int = Field(..., foreign_key="user.user_id")
-    score_id: int = Field(..., foreign_key="score.score_id")
-    professor_id: int = Field(..., foreign_key="user.user_id")
 
-    student: Optional["User"] = Relationship(
-        back_populates="calificaciones_as_student",
-        sa_relationship_kwargs={"foreign_keys": "[Calificacion.student_id]"}
-    )
-    professor: Optional["User"] = Relationship(
-        back_populates="calificaciones_as_professor",
-        sa_relationship_kwargs={"foreign_keys": "[Calificacion.professor_id]"}
-    )
-    score: Optional["Score"] = Relationship(
-        back_populates="calificaciones"
-    )
+class Score(ScoreBase, table = True):
+    __table_args__ = (UniqueConstraint("student_id", "subject_id", "score_type", name="uq_score_unique"),)
+     
+    score_id: Optional[int] = Field(default=None, primary_key=True)
+    subject_id: int = Field(..., foreign_key="subject.subject_id", description="id de la materia",index=True)
+    professor_id: int = Field(..., foreign_key="user.user_id", description="id del profesor",index=True)
+    student_id: int = Field(..., foreign_key="user.user_id", description="id del estudiante",index=True)
+
+    #Relaciones
+    student: Optional[User] = Relationship(back_populates="scores_received")
+    professor: Optional[User] = Relationship(back_populates="scores_given")
+    subject: Optional[Subject] = Relationship(back_populates="scores")
 
 
