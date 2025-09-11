@@ -2,7 +2,7 @@
 from fastapi import HTTPException
 from sqlmodel import Session, select
 from app.models import Role, Gender
-from app import models
+from app import models, schemas
 
 
 def get_role_id(session: Session, role: Role) -> int:
@@ -37,7 +37,7 @@ def get_role_enum(session: Session, role_id: int) -> Role:
 def get_gender_id(session: Session, gender: Gender) -> int:
     """Convierte un enum Gender a su ID correspondente en la base de datos"""
     gender_record = session.exec(
-        select(models.Gender_User). where(models.Gender_User == gender)
+        select(models.Gender_User). where(models.Gender_User.gender == gender)
     ).first()
 
     if not gender_record:
@@ -51,6 +51,12 @@ def get_gender_id(session: Session, gender: Gender) -> int:
     return gender_record.gender_id
 
 
-    
+def convert_user_to_public(user: models.User) -> schemas.UserPublic:
+    """Convierte un modelo User a UserPublic con enums"""
+    return schemas.UserPublic(
+        **user.model_dump(exclude={"gender_id", "role_id"}),
+        gender=user.gender_ref.gender if user.gender_ref else None,  # ← CORRECCIÓN
+        role=user.role_ref.role if user.role_ref else None,          # ← CORRECCIÓN
+    )
 
 

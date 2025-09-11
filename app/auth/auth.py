@@ -1,6 +1,6 @@
 #auth.py
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -10,6 +10,10 @@ from sqlmodel import Session, select
 from app import models, schemas
 from ..config import settings
 from ..db import get_db
+from .utils import get_role_enum
+
+#Session de db
+session_dep = Annotated[Session, Depends(get_db)]
 
 # Configuración de seguridad
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -42,8 +46,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    session: session_dep,
+    token: str = Depends(oauth2_scheme), 
 ) -> models.User:
     """
     Obtiene el usuario actual basado en el token JWT
@@ -74,7 +78,7 @@ async def get_current_user(
         raise credentials_exception
 
     # Buscar usuario en la base de datos
-    user = db.exec(
+    user = session.exec(
         select(models.User).where(
             (models.User.name_user == username) & 
             (models.User.user_id == user_id)
@@ -100,6 +104,7 @@ async def get_current_active_user(
     return current_user
 
 async def get_current_admin_user(
+    session: session_dep,
     current_user: models.User = Depends(get_current_user)
 ) -> models.User:
     """
@@ -114,7 +119,8 @@ async def get_current_admin_user(
     Raises:
         HTTPException: Si el usuario no es administrador
     """
-    if current_user.role != models.Role.ADMIN:
+    current_user_role = get_role_enum(session, current_user.role_id)
+    if current_user_role != models.Role.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Se requieren permisos de administrador"
@@ -122,6 +128,7 @@ async def get_current_admin_user(
     return current_user
 
 async def get_current_professor_user(
+    session: session_dep,
     current_user: models.User = Depends(get_current_user)
 ) -> models.User:
     """
@@ -136,7 +143,8 @@ async def get_current_professor_user(
     Raises:
         HTTPException: Si el usuario no es profesor
     """
-    if current_user.role != models.Role.PROFESSOR:
+    current_user_role = get_role_enum(session, current_user.role_id)
+    if current_user_role != models.Role.PROFESSOR:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Se requieren permisos de profesor"
@@ -145,8 +153,8 @@ async def get_current_professor_user(
 
 
 async def get_optional_user(
-    token: Optional[str] = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    session: session_dep,
+    token: Optional[str] = Depends(oauth2_scheme)
 ) -> Optional[models.User]:
     if token is None:
         return None
@@ -159,7 +167,7 @@ async def get_optional_user(
     except JWTError:
         return None
 
-    user = db.exec(
+    user = session.exec(
         select(models.User).where(
             (models.User.name_user == username) &
             (models.User.user_id == user_id)

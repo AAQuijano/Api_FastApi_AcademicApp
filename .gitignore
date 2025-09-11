@@ -31,3 +31,13 @@ Thumbs.db
 # Docker & misc
 *.pid
 *.db
+
+# Tests
+tests/
+*.tests/
+.tests/
+
+
+# Routers
+routers/scores_routers.py
+routers/subjects_routerspy

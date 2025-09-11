@@ -79,8 +79,8 @@ class User(UserBase, table=True):
     #Relaciones
     subjects_taught: List["Subject"] = Relationship(back_populates="professor")
     subjects_enrolled: List["Subject"] = Relationship(back_populates="students",link_model=StudentSubjectLink)
-    scores_given: List["Score"] = Relationship(back_populates="professor")
-    scores_received: List["Score"] = Relationship(back_populates="student")
+    scores_given: List["Score"] = Relationship(back_populates="professor", sa_relationship_kwargs={"foreign_keys": "[Score.professor_id]"})
+    scores_received: List["Score"] = Relationship(back_populates="student", sa_relationship_kwargs={"foreign_keys": "[Score.student_id]"})
 
     # Métodos de seguridad
     def set_password(self, password: str):
@@ -152,8 +152,8 @@ class Score(ScoreBase, table = True):
     student_id: int = Field(..., foreign_key="user.user_id", description="id del estudiante",index=True)
 
     #Relaciones
-    student: Optional[User] = Relationship(back_populates="scores_received")
-    professor: Optional[User] = Relationship(back_populates="scores_given")
+    student: Optional[User] = Relationship(back_populates="scores_received", sa_relationship_kwargs={"foreign_keys": "[Score.student_id]"})
+    professor: Optional[User] = Relationship(back_populates="scores_given", sa_relationship_kwargs={"foreign_keys": "[Score.professor_id]"})
     subject: Optional[Subject] = Relationship(back_populates="scores")
 
 

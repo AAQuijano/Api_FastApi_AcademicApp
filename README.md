@@ -1,7 +1,7 @@
 
 # FastAPI + MySQL API
 
-Este proyecto es una API desarrollada con [FastAPI](https://fastapi.tiangolo.com/) y conectada a una base de datos MySQL. Está en proceso para ser desplegada en producción sobre AWS EC2 y RDS.
+Este proyecto es una API desarrollada con [FastAPI](https://fastapi.tiangolo.com/) y conectada a una base de datos MySQL. Está en proceso para ser desplegada en producción sobre AWS. "Este proyecto aun esta en desarrollo".
 
 ---
 
@@ -9,9 +9,8 @@ Este proyecto es una API desarrollada con [FastAPI](https://fastapi.tiangolo.com
 
 - Autenticación JWT por roles (admin, profesor, estudiante)
 - Gestión de usuarios, materias, calificaciones
-- Cobertura de pruebas >90% con Pytest
+- Cobertura de pruebas > 90% con Pytest (Aun en proceso)
 - Docker y docker-compose opcional para entorno local
-- Integrable fácilmente con frontend Android (Jetpack Compose)
 
 ---
 
@@ -96,6 +95,6 @@ fastapi dev "main.py"
 
 ---
 
-## 📱 Frontend Android
+## 📱 Frontend: En decisión
 
-Este backend aun esta proceso.
+

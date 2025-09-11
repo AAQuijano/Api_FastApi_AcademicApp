@@ -1,4 +1,4 @@
-#usuarios.py
+#user_routers.py
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select, func, exists, and_
@@ -6,7 +6,7 @@ from app import models, schemas
 from app.db import get_db
 from app.auth.auth import get_current_user, get_current_admin_user
 from app.auth.permissions import require_role_or_none
-from app.auth.utils import get_gender_id, get_role_id, get_role_enum
+from app.auth.utils import get_gender_id, get_role_id, get_role_enum, convert_user_to_public
 from typing import Annotated, Optional
 from sqlalchemy.orm import aliased
 
@@ -110,14 +110,6 @@ def create_user(user: schemas.UserCreate,
             detail=f"Error al crear usuario: {str(e)}"
         ) from e
 
-
-def convert_user_to_public(user: models.User) -> schemas.UserPublic:
-    """Convierte un modelo User a UserPublic con enums"""
-    return schemas.UserPublic(
-        **user.model_dump(exclude={"gender_id", "role_id"}),
-        gender=user.gender_ref.gender if user.gender_ref else None,  # ← CORRECCIÓN
-        role=user.role_ref.role if user.role_ref else None,          # ← CORRECCIÓN
-    )
 
 @router.get("/me", response_model=schemas.UserPublic)
 async def read_users_me(current_user: user_dep):

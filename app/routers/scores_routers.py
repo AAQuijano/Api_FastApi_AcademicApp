@@ -1,4 +1,5 @@
-#scores.py
+#scores_routers.py
+"""
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 from app import models, schemas
@@ -102,3 +103,4 @@ def calificaciones_por_materia(score_id: int, session: session_dep):
     return session.exec(
         select(models.Calificacion).where(models.Calificacion.score_id == score_id)
     ).all()
+"""

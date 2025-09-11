@@ -1,4 +1,5 @@
-#subjects.py
+#subjects_routers.py
+"""
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select, col
 from app import models, schemas
@@ -14,11 +15,11 @@ admin_dep = Annotated[models.User, Depends(get_current_admin_user)]
 user_dep = Annotated[models.User, Depends(get_current_user)]
 
 
-@router.post("/", response_model=schemas.ScorePublic, status_code=status.HTTP_201_CREATED)
-def create_score(score: schemas.ScoreCreate, session: session_dep, current_user: professor_dep):
-    if current_user.user_id != score.professor_id:
+@router.post("/", response_model=schemas.SubjectPublic, status_code=status.HTTP_201_CREATED)
+def create_subject(score: schemas.ScoreCreate, session: session_dep, current_user: professor_dep):
+    if current_user.user_id != models.Subject.professor_id:
         raise HTTPException(status_code=403, detail="No puedes registrar materias para otros profesores")
-    db_score = models.Score(**score.model_dump())
+    db_score = models.Subject(**score.model_dump())
     session.add(db_score)
     session.commit()
     session.refresh(db_score)
@@ -106,3 +107,4 @@ def get_score_grades(score_id: int, session: session_dep, current_user: user_dep
     if not score:
         raise HTTPException(status_code=404, detail="Materia no encontrada")
     return [schemas.CalificacionPublic.model_validate(c) for c in score.calificaciones]
+"""

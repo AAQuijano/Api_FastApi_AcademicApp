@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from app import models, schemas
 from app.auth import auth
 from app.db import get_db, engine as default_engine
-from app.routes import usuarios, materias, calificaciones
+from app.routers import scores_routers, subjects_routers, users_routers
 
 # Dependencias comunes
 session_dep = Annotated[Session, Depends(get_db)]
@@ -115,12 +115,11 @@ def create_app(engine_override=None):
         return {"status": "ok"}
 
     #Incluir routers
-    app.include_router(usuarios.router)
-    app.include_router(materias.router)
-    app.include_router(calificaciones.router)
+    app.include_router(users_routers.router)
+    #app.include_router(subjects_routers.router)
+    # app.include_router(scores_routers.router)
 
     
-
     return app
 
 
