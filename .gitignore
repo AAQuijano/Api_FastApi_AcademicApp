@@ -40,4 +40,4 @@ tests/
 
 # Routers
 routers/scores_routers.py
-routers/subjects_routerspy
+routers/subjects_routers.py
