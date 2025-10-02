@@ -117,16 +117,12 @@ class UserUpdate(SQLModel):
 # Esquemas de Subjects
 # ------------------------------------------
 
-class SubjectBase(SQLModel):
+class SubjectCreate(SQLModel):
     name_subject: str
     description: Optional[str] = None
 
 
-class SubjectCreate(SubjectBase):
-    professor_id: int
-
-
-class SubjectPublic(SubjectBase):
+class SubjectPublic(SubjectCreate):
     subject_id: int
     professor_id: int
 
