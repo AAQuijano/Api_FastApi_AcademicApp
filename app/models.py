@@ -25,20 +25,23 @@ class Gender(str, Enum):
     FEMALE = "female"
 
 
+
+# Tabla de Roles #
 class Role_User(SQLModel, table=True):
     role_id: Optional[int] = Field(default=None, primary_key=True)
     role: Role = Field(..., index=True, description="Rol del usuario en el sistema")
     users: List["User"] = Relationship(back_populates="role_ref")
 
-
+# Tabla de Géneros #
 class Gender_User(SQLModel, table = True):
     gender_id: Optional[int] = Field(default=None, primary_key=True)
     gender: Gender = Field(..., index=True, description="Genero de usuario en el sistema")
     users: List["User"] = Relationship(back_populates="gender_ref")
 
 
+
+# Tabla de relación entre estudiantes y materias #
 class StudentSubjectLink(SQLModel, table=True):
-    __tablename__ = "student_subject_link"
     """Tabla de relación entre estudiantes y materias"""
     student_id: int = Field(
         foreign_key="user.user_id", 
@@ -48,8 +51,10 @@ class StudentSubjectLink(SQLModel, table=True):
         foreign_key="subject.subject_id", 
         primary_key=True
     )
-  
 
+
+
+# Tabla base de usuarios #
 class UserBase(SQLModel):
     """Campos base compartidos por todos los usuarios"""
     name_complete: str = Field(..., index=True, description="Nombre completo del usuario")
@@ -61,7 +66,7 @@ class UserBase(SQLModel):
     gender_id: int = Field(..., foreign_key="gender_user.gender_id", description="Genero del usuario" )
     role_id: int = Field(..., foreign_key="role_user.role_id", description="Rol del usuario")
     
-
+# Tabla de usuarios #
 class User(UserBase, table=True):
     """Modelo principal de usuario que representa todos los roles en el sistema"""
     user_id: Optional[int] = Field(default=None, primary_key=True)
@@ -86,7 +91,7 @@ class User(UserBase, table=True):
     def set_password(self, password: str):
         """Hashea y guarda la contraseña del usuario"""
         self.hashed_password = pwd_context.hash(password)
-
+        
     def verify_password(self, password: str) -> bool:
         """Verifica si la contraseña coincide con el hash almacenado"""
         return pwd_context.verify(password, self.hashed_password)
@@ -99,6 +104,9 @@ class User(UserBase, table=True):
         return f"<User {self.name_user} ({role_str})>"
 
 
+
+
+# Tabla base de materias #
 class SubjectBase(SQLModel):
     name_subject: str = Field(..., index=True, description="Nombre de la materia")
     description: Optional[str] = Field(
@@ -107,7 +115,7 @@ class SubjectBase(SQLModel):
         description="Descripción detallada de la materia"
     )
 
-
+#Tabla de materias #
 class Subject(SubjectBase, table=True):
     subject_id: Optional[int] = Field(default=None, primary_key=True)
     professor_id: int = Field(..., foreign_key="user.user_id", description="id del profesor de la materia",index=True)
@@ -118,6 +126,9 @@ class Subject(SubjectBase, table=True):
     scores: List["Score"] = Relationship(back_populates="subject")
 
 
+
+
+# Tabla base de calificaciones #
 class ScoreBase(SQLModel):
     score_type: str = Field(
         ..., 
@@ -142,7 +153,7 @@ class ScoreBase(SQLModel):
         description="Comentarios adicionales sobre la calificación"
     )
 
-
+# Tabla de calificaciones #
 class Score(ScoreBase, table = True):
     __table_args__ = (UniqueConstraint("student_id", "subject_id", "score_type", name="uq_score_unique"),)
      

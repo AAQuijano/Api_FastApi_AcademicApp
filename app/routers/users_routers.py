@@ -6,7 +6,7 @@ from app import models, schemas
 from app.db import get_db
 from app.auth.auth import get_current_user, get_current_admin_user
 from app.auth.permissions import require_role_or_none
-from app.auth.utils import get_gender_id, get_role_id, get_role_enum, convert_user_to_public
+from app.auth.utils import get_role_enum
 from typing import Annotated, Optional
 from sqlalchemy.orm import aliased
 
@@ -35,7 +35,7 @@ def create_user(user: schemas.UserCreate,
     # print("🔍 Rol recibido:", user.role)
     # print("🔍 Especialización recibida:", user.specialization)
     # print("🔍 Current user:", current_user)
-    if current_user is not None and current_user.role != models.Role.ADMIN:
+    if current_user is not None and get_role_enum(session, current_user.role_id) != models.Role.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo un administrador puede crear nuevos usuarios estando autenticado"

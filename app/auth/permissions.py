@@ -3,12 +3,15 @@
 from fastapi import Depends, HTTPException, Request
 from typing import Optional,  Callable, List
 from app.auth.auth import get_current_user
+from app.auth.utils import get_role_enum
 from app.models import Role, User
 from fastapi.security.utils import get_authorization_scheme_param
+from sqlmodel import Session
+from app.db import get_db
 
 
 def require_role_or_none(allowed_roles: List[Role]) -> Callable[[Request], Optional[User]]:
-    async def dependency(request: Request) -> Optional[User]:
+    async def dependency(request: Request, session: Session = Depends(get_db)) -> Optional[User]:
         auth = request.headers.get("Authorization")
         if not auth:
             return None  # No token → permitir como anónimo
@@ -18,11 +21,11 @@ def require_role_or_none(allowed_roles: List[Role]) -> Callable[[Request], Optio
             return None
 
         try:
-            user = await get_current_user(token)
+            user = await get_current_user(session, token)
         except Exception:
             return None
 
-        if user.role not in allowed_roles:
+        if get_role_enum(session, user.role_id) not in allowed_roles:
             raise HTTPException(
                 status_code=403,
                 detail="Permisos insuficientes"

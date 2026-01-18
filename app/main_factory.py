@@ -114,10 +114,10 @@ def create_app(engine_override=None):
     async def health_check():
         return {"status": "ok"}
 
-    #Incluir routers
+    # Incluir routers
     app.include_router(users_routers.router)
-    #app.include_router(subjects_routers.router)
-    # app.include_router(scores_routers.router)
+    app.include_router(subjects_routers.router)
+    app.include_router(scores_routers.router)
 
     
     return app

@@ -66,7 +66,7 @@ pytest --cov=app --cov-report=html
 3. Clona este repositorio:
 
 ```bash
-git clone https://github.com/AAQuijano/Android_ProyectoFinal_Api.git
+git clone https://github.com/AAQuijano/Api_FastApi_AcademicApp.git
 cd Android_ProyectoFinal_Api
 ```
 
