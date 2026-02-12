@@ -6,7 +6,7 @@ from app import models, schemas
 from app.db import get_db
 from app.auth.auth import get_current_user, get_current_admin_user
 from app.auth.permissions import require_role_or_none
-from app.auth.utils import get_role_enum
+from app.auth.utils import get_role_enum, get_gender_id, get_role_id, convert_user_to_public
 from typing import Annotated, Optional
 from sqlalchemy.orm import aliased
 
@@ -29,7 +29,7 @@ def calculate_age(birth_date: Optional[date]) -> Optional[int]:
 @router.post("/", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreate, 
                 session: session_dep,
-                 current_user: Optional[models.User] = require_role_or_none([models.Role.ADMIN])
+                 current_user: Optional[models.User] = Depends(require_role_or_none([models.Role.ADMIN]))
                  ):
     
     # print("🔍 Rol recibido:", user.role)
@@ -203,73 +203,144 @@ async def list_users(
     return [convert_user_to_public(u) for u in users]
 
 
-@router.get("/{user_id}/historial", response_model=list[schemas.SubjectHistory])
-def obtener_historial_academico(user_id: int, session: session_dep, current_user: user_dep):
-    current_user_role = get_role_enum(session, current_user.role_id)
-    allowed_roles = [models.Role.ADMIN,models.Role.PROFESSOR]
-    if current_user_role not in allowed_roles :
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No tienes permiso para ver historial"
-        )
+# @router.get("/{user_id}/historial", response_model=list[schemas.SubjectHistory])
+# def obtener_historial_academico(user_id: int, session: session_dep, current_user: user_dep):
+#     current_user_role = get_role_enum(session, current_user.role_id)
+#     allowed_roles = [models.Role.ADMIN, models.Role.PROFESSOR]
     
-    # Verificar que el usuario existe y es estudiante
-    user = session.get(models.User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+#     if current_user_role not in allowed_roles:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail="No tienes permiso para ver historial"
+#         )
     
-    #verificar que es estudiante
-    user_role = get_role_enum(session, user.role_id)
-    if user_role != models.Role.STUDENT:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="El historial académico solo está disponible para estudiantes"
-            )
-    # Usar alias para evitar conflicto de nombres
-    Subject = aliased(models.Subject)
-    if current_user_role == models.Role.PROFESSOR:
-        #Profesores: solo pueden ver notas de sus materias
-        resultados = session.exec(
-            select(
-                Subject.name_subject,
-                models.Score.valor
-            )
-            .join(models.Score, models.Score.subject_id == Subject.subject_id)
-            .where(and_(
-                models.Score.student_id == user_id,
-                Subject.professor_id == current_user.user_id  # ← ¡FILTRO IMPORTANTE!
-            ))
-            .order_by(Subject.name_subject)
-        ).all()
+#     # Verificar que el usuario existe y es estudiante
+#     user = session.get(models.User, user_id)
+#     if not user:
+#         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+#     # Verificar que es estudiante
+#     user_role = get_role_enum(session, user.role_id)
+#     if user_role != models.Role.STUDENT:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail="El historial académico solo está disponible para estudiantes"
+#         )
+    
+#     # Usar alias para evitar conflicto de nombres
+#     Subject = aliased(models.Subject)
+    
+#     if current_user_role == models.Role.PROFESSOR:
+#         # Profesores: solo pueden ver notas de sus materias
+#         resultados = session.exec(
+#             select(
+#                 Subject.name_subject,
+#                 models.Score.valor
+#             )
+#             .join(models.Score, models.Score.subject_id == Subject.subject_id)  # 🔧 CORREGIDO
+#             .where(and_(
+#                 models.Score.student_id == user_id,
+#                 Subject.professor_id == current_user.user_id  # ← FILTRO IMPORTANTE
+#             ))
+#             .order_by(Subject.name_subject)
+#         ).all()
+#     else:
+#         # Admin: puede ver todas las notas
+#         resultados = session.exec(
+#             select(
+#                 Subject.name_subject,
+#                 models.Score.valor
+#             )
+#             .join(models.Score, models.Score.subject_id == Subject.subject_id)  # 🔧 CORREGIDO
+#             .where(models.Score.student_id == user_id)
+#             .order_by(Subject.name_subject)
+#         ).all()
 
-    else: 
-        #Admin: puede ver todas las notas
-        resultados = session.exec(
-            select(
-                Subject.name_subject,
-                models.Score.valor
-            )
-            .join(models.Score, models.Score.subject_id == Subject.subject_id)
-            .where(models.Score.student_id == user_id)
-            .order_by(Subject.name_subject)
-        ).all() 
+#     # Si no hay notas, devolver lista vacía
+#     if not resultados:
+#         return []
+    
+#     # Construir historial
+#     historial = {}
+#     for materia_nombre, valor in resultados:
+#         historial.setdefault(materia_nombre, []).append(valor)
 
-    # Si no hay notas, devolver lista vacía
-    if not resultados:
-        return []
+#     from statistics import mean
+#     return [
+#         schemas.SubjectHistory(
+#             materia=materia,
+#             notas=notas,
+#             promedio=round(mean(notas), 2) if notas else 0
+#         )
+#         for materia, notas in historial.items()
+#     ]
+# @router.get("/{user_id}/historial", response_model=list[schemas.SubjectHistory])
+# def obtener_historial_academico(user_id: int, session: session_dep, current_user: user_dep):
+#     current_user_role = get_role_enum(session, current_user.role_id)
+#     allowed_roles = [models.Role.ADMIN,models.Role.PROFESSOR]
+#     if current_user_role not in allowed_roles :
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail="No tienes permiso para ver historial"
+#         )
+    
+#     # Verificar que el usuario existe y es estudiante
+#     user = session.get(models.User, user_id)
+#     if not user:
+#         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+#     #verificar que es estudiante
+#     user_role = get_role_enum(session, user.role_id)
+#     if user_role != models.Role.STUDENT:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail="El historial académico solo está disponible para estudiantes"
+#             )
+#     # Usar alias para evitar conflicto de nombres
+#     Subject = aliased(models.Subject)
+#     if current_user_role == models.Role.PROFESSOR:
+#         #Profesores: solo pueden ver notas de sus materias
+#         resultados = session.exec(
+#             select(
+#                 Subject.name_subject,
+#                 models.Score.valor
+#             )
+#             .join(models.Score, models.Score.subject_id == Subject.subject_id)
+#             .where(and_(
+#                 models.Score.student_id == user_id,
+#                 Subject.professor_id == current_user.user_id  # ← ¡FILTRO IMPORTANTE!
+#             ))
+#             .order_by(Subject.name_subject)
+#         ).all()
+
+#     else: 
+#         #Admin: puede ver todas las notas
+#         resultados = session.exec(
+#             select(
+#                 Subject.name_subject,
+#                 models.Score.valor
+#             )
+#             .join(models.Score, models.Score.subject_id == Subject.subject_id)
+#             .where(models.Score.student_id == user_id)
+#             .order_by(Subject.name_subject)
+#         ).all() 
+
+#     # Si no hay notas, devolver lista vacía
+#     if not resultados:
+#         return []
     
 
-    # Construir historial
-    historial = {}
-    for materia_nombre, valor in resultados:
-        historial.setdefault(materia_nombre, []).append(valor)
+#     # Construir historial
+#     historial = {}
+#     for materia_nombre, valor in resultados:
+#         historial.setdefault(materia_nombre, []).append(valor)
 
-    from statistics import mean
-    return [
-        schemas.SubjectHistory(
-            materia=materia,
-            notas=notas,
-            promedio=round(mean(notas), 2) if notas else 0
-        )
-        for materia, notas in historial.items()
-    ]
+#     from statistics import mean
+#     return [
+#         schemas.SubjectHistory(
+#             materia=materia,
+#             notas=notas,
+#             promedio=round(mean(notas), 2) if notas else 0
+#         )
+#         for materia, notas in historial.items()
+#     ]

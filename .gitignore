@@ -38,6 +38,6 @@ tests/
 .tests/
 
 
-# Routers
-app/routers/scores_routers.py
-app/routers/subjects_routers.py
+#Agents.md
+AGENTS.md
+.github/

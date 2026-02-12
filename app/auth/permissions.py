@@ -1,5 +1,4 @@
 # app/auth/permissions.py
-
 from fastapi import Depends, HTTPException, Request
 from typing import Optional,  Callable, List
 from app.auth.auth import get_current_user
@@ -8,6 +7,14 @@ from app.models import Role, User
 from fastapi.security.utils import get_authorization_scheme_param
 from sqlmodel import Session
 from app.db import get_db
+
+from fastapi import Depends, HTTPException, Request, status
+from typing import Optional, Callable, List
+from app.auth.auth import get_current_user
+from app.auth.utils import get_role_enum
+from app.models import Role, User
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlmodel import Session
 
 
 def require_role_or_none(allowed_roles: List[Role]) -> Callable[[Request], Optional[User]]:

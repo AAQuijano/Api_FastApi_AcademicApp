@@ -70,8 +70,8 @@ async def get_current_user(
     
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        user_id: int = payload.get("user_id")
+        username: Optional[str] = payload.get("sub")
+        user_id: Optional[int] = payload.get("user_id")
         if username is None or user_id is None:
             raise credentials_exception
     except JWTError:
@@ -160,8 +160,8 @@ async def get_optional_user(
         return None
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        user_id: int = payload.get("user_id")
+        username: Optional[str] = payload.get("sub")
+        user_id: Optional[int] = payload.get("user_id")
         if username is None or user_id is None:
             return None
     except JWTError:
@@ -175,3 +175,4 @@ async def get_optional_user(
     ).first()
 
     return user
+
