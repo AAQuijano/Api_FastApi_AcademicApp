@@ -5,7 +5,7 @@ from sqlmodel import Session, select, func, exists, and_
 from app import models, schemas
 from app.db import get_db
 from app.auth.auth import get_current_user, get_current_admin_user
-from app.auth.permissions import require_role_or_none
+from app.auth.permissions import get_optional_admin_or_anon
 from app.auth.utils import get_role_enum, get_gender_id, get_role_id, convert_user_to_public
 from typing import Annotated, Optional
 from sqlalchemy.orm import aliased
@@ -29,17 +29,17 @@ def calculate_age(birth_date: Optional[date]) -> Optional[int]:
 @router.post("/", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreate, 
                 session: session_dep,
-                 current_user: Optional[models.User] = Depends(require_role_or_none([models.Role.ADMIN]))
+                 current_user: Optional[models.User] = Depends(get_optional_admin_or_anon)
                  ):
     
     # print("🔍 Rol recibido:", user.role)
     # print("🔍 Especialización recibida:", user.specialization)
     # print("🔍 Current user:", current_user)
-    if current_user is not None and get_role_enum(session, current_user.role_id) != models.Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo un administrador puede crear nuevos usuarios estando autenticado"
-        )
+    # if current_user is not None and get_role_enum(session, current_user.role_id) != models.Role.ADMIN:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         detail="Solo un administrador puede crear nuevos usuarios estando autenticado"
+    #     )
     try:
         # Verificar unicidad
         existing_user = session.exec(
