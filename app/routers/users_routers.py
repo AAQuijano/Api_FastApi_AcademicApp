@@ -146,11 +146,11 @@ async def update_my_user(
     user_role = get_role_enum(session, user.role_id)
 
     # 🔍 DEBUG: Imprime el rol del usuario
-    print(f"🔍 User ID: {user.user_id}")
-    print(f"🔍 Role ID: {user.role_id}")
-    print(f"🔍 Role Enum: {user_role}")
-    print(f"🔍 Role Type: {type(user_role)}")
-    print(f"🔍 Is Professor? {user_role == models.Role.PROFESSOR}")
+    # print(f"🔍 User ID: {user.user_id}")
+    # print(f"🔍 Role ID: {user.role_id}")
+    # print(f"🔍 Role Enum: {user_role}")
+    # print(f"🔍 Role Type: {type(user_role)}")
+    # print(f"🔍 Is Professor? {user_role == models.Role.PROFESSOR}")
 
     # Validaciones manuales porque 'role' no viene en PATCH
     if "specialization" in update_data and user_role != models.Role.PROFESSOR:

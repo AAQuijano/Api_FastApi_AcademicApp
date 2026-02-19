@@ -96,21 +96,21 @@ class UserUpdate(SQLModel):
     career: Optional[str] = None
     password: Optional[str] = None
 
-    @field_validator('specialization')
-    @classmethod
-    def validate_specialization(cls, v, info: ValidationInfo):
-        role = info.data.get("role")
-        if role != Role.PROFESSOR and v:
-            raise ValueError("Only professors can have specialization")
-        return v
+    # @field_validator('specialization')
+    # @classmethod
+    # def validate_specialization(cls, v, info: ValidationInfo):
+    #     role = info.data.get("role")
+    #     if role != Role.PROFESSOR and v:
+    #         raise ValueError("Only professors can have specialization")
+    #     return v
     
-    @field_validator('career')
-    @classmethod
-    def validate_career(cls, v, info: ValidationInfo):
-        role = info.data.get("role")
-        if role != Role.STUDENT and v:
-            raise ValueError("Only students can have career")
-        return v
+    # @field_validator('career')
+    # @classmethod
+    # def validate_career(cls, v, info: ValidationInfo):
+    #     role = info.data.get("role")
+    #     if role != Role.STUDENT and v:
+    #         raise ValueError("Only students can have career")
+    #     return v
 
 
 # ------------------------------------------
