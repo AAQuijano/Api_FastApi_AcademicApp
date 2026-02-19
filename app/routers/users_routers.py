@@ -129,22 +129,14 @@ async def read_user(user_id: int, session: session_dep, current_user: user_dep):
     return convert_user_to_public(user)
 
 
-@router.patch("/{user_id}", response_model=schemas.UserPublic)
-async def update_user(
-    user_id: int,
+@router.patch("/Update user", response_model=schemas.UserPublic)
+async def update_my_user(
     user_update: schemas.UserUpdate,
     session: session_dep,
     current_user: user_dep
 ):
-    current_user_role = get_role_enum(session, current_user.role_id)
-    #Actualizar endpoint
-    if current_user_role != models.Role.ADMIN and user_id != current_user.user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo puedes modificar tu propio perfil"
-        )
-
-    user = session.get(models.User, user_id)
+    
+    user = session.get(models.User, current_user.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -152,6 +144,13 @@ async def update_user(
     update_data = {k: v for k, v in update_data.items() if v is not None}
 
     user_role = get_role_enum(session, user.role_id)
+
+    # 🔍 DEBUG: Imprime el rol del usuario
+    print(f"🔍 User ID: {user.user_id}")
+    print(f"🔍 Role ID: {user.role_id}")
+    print(f"🔍 Role Enum: {user_role}")
+    print(f"🔍 Role Type: {type(user_role)}")
+    print(f"🔍 Is Professor? {user_role == models.Role.PROFESSOR}")
 
     # Validaciones manuales porque 'role' no viene en PATCH
     if "specialization" in update_data and user_role != models.Role.PROFESSOR:
@@ -344,3 +343,54 @@ async def list_users(
 #         )
 #         for materia, notas in historial.items()
 #     ]
+
+
+# @router.patch("/{user_id}", response_model=schemas.UserPublic)
+# async def update_users(
+#     user_id: int,
+#     user_update: schemas.UserUpdate,
+#     session: session_dep,
+#     current_user: user_dep
+# ):
+#     current_user_role = get_role_enum(session, current_user.role_id)
+#     #Actualizar endpoint
+#     if current_user_role != models.Role.ADMIN and user_id != current_user.user_id:
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="Solo puedes modificar tu propio perfil"
+#         )
+
+#     user = session.get(models.User, user_id)
+#     if not user:
+#         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+#     update_data = user_update.model_dump(exclude_unset=True)
+#     update_data = {k: v for k, v in update_data.items() if v is not None}
+
+#     user_role = get_role_enum(session, user.role_id)
+
+#     # Validaciones manuales porque 'role' no viene en PATCH
+#     if "specialization" in update_data and user_role != models.Role.PROFESSOR:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail="Solo los profesores pueden tener especialización"
+#         )
+#     if "career" in update_data and user_role != models.Role.STUDENT:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail="Solo los estudiantes pueden tener carrera"
+#         )
+    
+#     if "birth_date" in update_data:
+#         update_data["age"] = calculate_age(update_data["birth_date"])
+
+
+#     if 'password' in update_data:
+#         update_data['hashed_password'] = models.pwd_context.hash(update_data.pop('password'))
+
+#     for key, value in update_data.items():
+#         setattr(user, key, value)
+
+#     session.commit()
+#     session.refresh(user)
+#     return convert_user_to_public(user)

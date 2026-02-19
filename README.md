@@ -9,7 +9,7 @@ Este proyecto es una API desarrollada con [FastAPI](https://fastapi.tiangolo.com
 
 - Autenticación JWT por roles (admin, profesor, estudiante)
 - Gestión de usuarios, materias, calificaciones
-- Cobertura de pruebas > 90% con Pytest (Aun en proceso)
+- Cobertura de pruebas con Pytest (Aun en proceso)
 - Docker y docker-compose opcional para entorno local
 
 ---
