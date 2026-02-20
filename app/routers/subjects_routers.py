@@ -32,13 +32,25 @@ def create_subject(subject: schemas.SubjectCreate, session: session_dep, current
 
 
 @router.get("/", response_model=list[schemas.SubjectPublic])
-def list_subjects(session: session_dep):
+def list_subjects(session: session_dep, current_user: user_dep):
+    user_role = get_role_enum(session, current_user.role_id)
+    if user_role != models.Role.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo administradores pueden ver materias"
+        )
     subjects = session.exec(select(models.Subject)).all()
     return subjects
 
 
 @router.get("/{subject_id}", response_model=schemas.SubjectPublic)
-def get_subject(subject_id: int, session: session_dep):
+def get_subject(subject_id: int, session: session_dep, current_user: user_dep):
+    user_role = get_role_enum(session, current_user.role_id)
+    if user_role != models.Role.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo administradores pueden ver materias"
+        )
     subject = session.get(models.Subject, subject_id)
     if not subject:
         raise HTTPException(status_code=404, detail="Materia no encontrada")

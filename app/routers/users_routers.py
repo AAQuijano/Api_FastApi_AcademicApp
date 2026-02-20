@@ -17,6 +17,7 @@ router = APIRouter(prefix="/usuarios", tags=["usuarios"])
 session_dep = Annotated[Session, Depends(get_db)]
 user_dep = Annotated[models.User, Depends(get_current_user)]
 admin_dep = Annotated[models.User, Depends(get_current_admin_user)]
+user_or_no = Annotated[models.User, Depends(get_optional_admin_or_anon)]
 
 
 def calculate_age(birth_date: Optional[date]) -> Optional[int]:
@@ -27,19 +28,19 @@ def calculate_age(birth_date: Optional[date]) -> Optional[int]:
 
 
 @router.post("/", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
-def create_user(user: schemas.UserCreate, 
-                session: session_dep,
-                 current_user: Optional[models.User] = Depends(get_optional_admin_or_anon)
-                 ):
+def create_user(user: schemas.UserCreate, session: session_dep, current_user: user_or_no):
     
     # print("🔍 Rol recibido:", user.role)
     # print("🔍 Especialización recibida:", user.specialization)
     # print("🔍 Current user:", current_user)
-    # if current_user is not None and get_role_enum(session, current_user.role_id) != models.Role.ADMIN:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Solo un administrador puede crear nuevos usuarios estando autenticado"
-    #     )
+
+    # if current_user is not None:
+    #     user_role = get_role_enum(session, current_user.role_id)
+    #     if user_role != models.Role.ADMIN:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_403_FORBIDDEN,
+    #             detail="Solo un administrador puede crear nuevos usuarios estando autenticado"
+    #         )
     try:
         # Verificar unicidad
         existing_user = session.exec(
@@ -179,14 +180,18 @@ async def update_my_user(
     return convert_user_to_public(user)
 
 
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{user_id}", status_code=status.HTTP_200_OK)
 async def delete_user(user_id: int, session: session_dep, current_user: admin_dep):
     user = session.get(models.User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    user_data = convert_user_to_public(user)
     session.delete(user)
     session.commit()
-    return None
+    return {
+        "message": "Usuario eliminado exitosamente",
+        "usuario_eliminado": user_data
+    }
 
 
 @router.get("/", response_model=list[schemas.UserPublic])

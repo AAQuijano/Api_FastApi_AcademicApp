@@ -41,3 +41,5 @@ tests/
 #Agents.md
 AGENTS.md
 .github/
+
+migrate.py
