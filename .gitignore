@@ -42,4 +42,6 @@ tests/
 AGENTS.md
 .github/
 
+#archivos
+run_tests.sh
 migrate.py

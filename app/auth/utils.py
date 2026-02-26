@@ -52,37 +52,6 @@ def get_gender_id(session: Session, genero: Gender) -> int:
     return genero_id
 
 
-# def convert_user_to_public(user: models.User) -> schemas.UserPublic:
-#     """
-#     Convierte un modelo User a UserPublic con enums.
-    
-#     Requiere que las relaciones gender_ref y role_ref estén cargadas.
-#     """
-#     # Validar que tenemos los datos necesarios
-#     if user.gender_ref is None:
-#         raise ValueError(
-#             f"gender_ref no está cargado para usuario {user.user_id}. "
-#             "Usa: select(User).options(selectinload(User.gender_ref))"
-#         )
-    
-#     if user.role_ref is None:
-#         raise ValueError(
-#             f"role_ref no está cargado para usuario {user.user_id}. "
-#             "Usa: select(User).options(selectinload(User.role_ref))"
-#         )
-    
-#     # Crear el diccionario de datos excluyendo IDs
-#     data = user.model_dump(exclude={"gender_id", "role_id", "hashed_password"})
-    
-#     # Añadir los enums desde las relaciones
-#     data.update({
-#         "gender": user.gender_ref.gender,
-#         "role": user.role_ref.role,
-#     })
-    
-#     return schemas.UserPublic(**data)
-
-
 def convert_user_to_public(user: models.User) -> schemas.UserPublic:
     """Convierte un modelo User a UserPublic con enums"""
     # Verificar que las relaciones están cargadas
