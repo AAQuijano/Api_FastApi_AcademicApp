@@ -34,20 +34,21 @@ async def get_optional_admin_or_anon(
     # Intentar obtener usuario
     try:
         user = await get_current_user(session, token)
+        # Verificar rol
+        user_role = get_role_enum(session, user.role_id)
+        if user_role != Role.ADMIN:
+            # Usuario autenticado pero no es admin → DENEGAR
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo administradores pueden crear usuarios"
+            )
+        
+        # Es admin → permitir
+        return user
     except Exception:
         return None  # Token inválido → tratar como anónimo
     
-    # Verificar rol
-    user_role = get_role_enum(session, user.role_id)
-    if user_role != Role.ADMIN:
-        # Usuario autenticado pero no es admin → DENEGAR
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo administradores pueden crear usuarios"
-        )
     
-    # Es admin → permitir
-    return user
 
 
 # def require_role_or_none(allowed_roles: List[Role]) -> Callable:

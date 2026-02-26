@@ -16,7 +16,7 @@ admin_dep = Annotated[models.User, Depends(get_current_admin_user)]
 user_dep = Annotated[models.User, Depends(get_current_user)]
 
 
-@router.post("/", response_model=schemas.SubjectPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/Crear_cursos", response_model=schemas.SubjectPublic, status_code=status.HTTP_201_CREATED)
 def create_subject(subject: schemas.SubjectCreate, session: session_dep, current_user: professor_dep):
 
     if current_user.user_id is None:
@@ -31,7 +31,7 @@ def create_subject(subject: schemas.SubjectCreate, session: session_dep, current
     return db_subject
 
 
-@router.get("/", response_model=list[schemas.SubjectPublic])
+@router.get("/Lista_de_cursos", response_model=list[schemas.SubjectPublic])
 def list_subjects(session: session_dep, current_user: user_dep):
     user_role = get_role_enum(session, current_user.role_id)
     if user_role != models.Role.ADMIN:
@@ -40,10 +40,20 @@ def list_subjects(session: session_dep, current_user: user_dep):
             detail="Solo administradores pueden ver materias"
         )
     subjects = session.exec(select(models.Subject)).all()
+        
     return subjects
 
 
-@router.get("/{subject_id}", response_model=schemas.SubjectPublic)
+@router.get("/Mis_cursos", response_model = list[schemas.SubjectPublic])
+def my_subjects(session: session_dep, current_user: professor_dep):
+    subjects = session.exec(select(models.Subject)
+                            .where(models.Subject.professor_id == current_user.user_id)
+                            .order_by(models.Subject.name_subject)
+                            ).all()
+    return subjects
+
+
+@router.get("/{subject_id}/ver_curso", response_model=schemas.SubjectPublic)
 def get_subject(subject_id: int, session: session_dep, current_user: user_dep):
     user_role = get_role_enum(session, current_user.role_id)
     if user_role != models.Role.ADMIN:
@@ -57,7 +67,7 @@ def get_subject(subject_id: int, session: session_dep, current_user: user_dep):
     return subject
 
 
-@router.patch("/{subject_id}", response_model=schemas.SubjectPublic)
+@router.patch("/{subject_id}/Actualizar_curso", response_model=schemas.SubjectPublic)
 def update_subject(subject_id: int, subject_update: schemas.SubjectCreate, session: session_dep, current_user: professor_dep):
     db_subject = session.get(models.Subject, subject_id)
     if not db_subject:
@@ -74,7 +84,7 @@ def update_subject(subject_id: int, subject_update: schemas.SubjectCreate, sessi
     return db_subject
 
 
-@router.delete("/{subject_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{subject_id}/Borrar_curso", status_code=status.HTTP_204_NO_CONTENT)
 def delete_subject(subject_id: int, session: session_dep, current_user: professor_dep):
     subject = session.get(models.Subject, subject_id)
     if not subject:
@@ -86,19 +96,31 @@ def delete_subject(subject_id: int, session: session_dep, current_user: professo
     return None
 
 
-# @router.get("/{subject_id}/estudiantes", response_model=list[schemas.UserPublic])
-# def list_subject_students(subject_id: int, session: session_dep, current_user: user_dep):
-#     subject = session.get(models.Subject, subject_id)
-#     if not subject:
-#         raise HTTPException(status_code=404, detail="Materia no encontrada")
+@router.get("/{subject_id}/Estudiantes_de_curso", response_model=list[schemas.UserPublic])
+def list_subject_students(subject_id: int, session: session_dep, current_user: user_dep):
+    subject = session.get(models.Subject, subject_id)
+    if not subject:
+        raise HTTPException(status_code=404, detail="Materia no encontrada")
     
-#     # Cargar estudiantes con sus relaciones para la conversión
-#     subject_with_students = session.exec(
-#         select(models.Subject)
-#         .where(models.Subject.subject_id == subject_id)
-#         .options(selectinload(models.Subject.students))
-#     ).first()
-#     return [convert_user_to_public(student) for student in subject_with_students.students]
+    # Verificar permisos (opcional, según tu lógica)
+    current_role = get_role_enum(session, current_user.role_id)
+    if current_role == models.Role.PROFESSOR and subject.professor_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo puedes ver estudiantes de tus propias materias"
+        )
+    
+    # Cargar estudiantes con sus relaciones para la conversión
+    subject_with_students = session.exec(
+        select(models.User)
+        .join(models.StudentSubjectLink)
+        .where(models.StudentSubjectLink.subject_id == subject_id)
+        .where(models.StudentSubjectLink.student_id == models.User.user_id)
+    ).all()
+
+    print(subject_with_students)
+    return [convert_user_to_public(student) for student in subject_with_students]
+    #return subject_with_students
 
 # @router.get("/{subject_id}/estudiantes", response_model=list[schemas.UserPublic])
 # def list_subject_students(subject_id: int, session: session_dep, current_user: user_dep):
@@ -127,13 +149,17 @@ def delete_subject(subject_id: int, session: session_dep, current_user: professo
 #     return [convert_user_to_public(student) for student in subject_with_students.students]
 
 
-@router.post("/{subject_id}/inscribir", status_code=status.HTTP_200_OK)
+@router.post("/{subject_id}/inscribir_estudiantes", status_code=status.HTTP_200_OK)
 def enroll_student(subject_id: int, student_id: int, session: session_dep, current_user: professor_dep):
     subject = session.get(models.Subject, subject_id)
     student = session.get(models.User, student_id)
     
-    if not subject or not student:
-        raise HTTPException(status_code=404, detail="Materia o estudiante no encontrado")
+    if not subject:
+        raise HTTPException(status_code=404, detail="Materia no encontrada")
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+
     
     if subject.professor_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Solo puedes inscribir estudiantes en tus propias materias")
@@ -157,10 +183,18 @@ def enroll_student(subject_id: int, student_id: int, session: session_dep, curre
     session.add(new_link)
     session.commit()
     
+    # Verificar si ya está inscrito
+    existing_link = session.exec(
+        select(models.StudentSubjectLink).where(
+            models.StudentSubjectLink.student_id == student_id,
+            models.StudentSubjectLink.subject_id == subject_id
+        )
+    ).first()
+
     return {"message": "Estudiante inscrito exitosamente"}
 
 
-@router.delete("/{subject_id}/estudiantes/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{subject_id}/desinscribir_estudiantes/{student_id}", status_code=status.HTTP_200_OK)
 def unenroll_student(subject_id: int, student_id: int, session: session_dep, current_user: professor_dep):
     subject = session.get(models.Subject, subject_id)
     if not subject:
@@ -182,4 +216,4 @@ def unenroll_student(subject_id: int, student_id: int, session: session_dep, cur
     
     session.delete(link)
     session.commit()
-    return None
+    return {"message":"Estudiante desenscrito correctamente"}
