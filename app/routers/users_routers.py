@@ -130,7 +130,7 @@ async def read_user(user_id: int, session: session_dep, current_user: user_dep):
     return convert_user_to_public(user)
 
 
-@router.patch("/Update user", response_model=schemas.UserPublic)
+@router.patch("/Update_user", response_model=schemas.UserPublic)
 async def update_my_user(
     user_update: schemas.UserUpdate,
     session: session_dep,

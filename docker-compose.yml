@@ -7,7 +7,7 @@ services:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: academicapp
       MYSQL_USER: admin
-      MYSQL_PASSWORD: Password#0*5
+      MYSQL_PASSWORD: Password
     ports:
       - "3306:3306"
     volumes:

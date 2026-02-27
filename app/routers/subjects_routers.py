@@ -149,7 +149,7 @@ def list_subject_students(subject_id: int, session: session_dep, current_user: u
 #     return [convert_user_to_public(student) for student in subject_with_students.students]
 
 
-@router.post("/{subject_id}/inscribir_estudiantes", status_code=status.HTTP_200_OK)
+@router.post("/{subject_id}/{student_id}/Inscribir_estudiantes", status_code=status.HTTP_200_OK)
 def enroll_student(subject_id: int, student_id: int, session: session_dep, current_user: professor_dep):
     subject = session.get(models.Subject, subject_id)
     student = session.get(models.User, student_id)
@@ -183,25 +183,24 @@ def enroll_student(subject_id: int, student_id: int, session: session_dep, curre
     session.add(new_link)
     session.commit()
     
-    # Verificar si ya está inscrito
-    existing_link = session.exec(
-        select(models.StudentSubjectLink).where(
-            models.StudentSubjectLink.student_id == student_id,
-            models.StudentSubjectLink.subject_id == subject_id
-        )
-    ).first()
+    student_data = convert_user_to_public(student)
 
-    return {"message": "Estudiante inscrito exitosamente"}
+    return {"message": "Estudiante inscrito exitosamente",
+            "Estudiante inscrito: ": student_data}
 
 
-@router.delete("/{subject_id}/desinscribir_estudiantes/{student_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{subject_id}/{student_id}/Desinscribir_estudiantes", status_code=status.HTTP_200_OK)
 def unenroll_student(subject_id: int, student_id: int, session: session_dep, current_user: professor_dep):
     subject = session.get(models.Subject, subject_id)
+    student = session.get(models.User, student_id)
     if not subject:
         raise HTTPException(status_code=404, detail="Materia no encontrada")
     
     if subject.professor_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Solo puedes desinscribir estudiantes de tus propias materias")
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
     # Buscar y eliminar la relación
     link = session.exec(
@@ -214,6 +213,10 @@ def unenroll_student(subject_id: int, student_id: int, session: session_dep, cur
     if not link:
         raise HTTPException(status_code=404, detail="Estudiante no inscrito en esta materia")
     
+    
+    student_data = convert_user_to_public(student)
+    
     session.delete(link)
     session.commit()
-    return {"message":"Estudiante desenscrito correctamente"}
+    return {"message":"Estudiante desinscrito correctamente",
+            "Estudiante desiscrito: ": student_data}
