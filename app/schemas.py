@@ -139,8 +139,8 @@ class SubjectHistory(SQLModel):
 # ------------------------------------------
 
 class ScoreBase(SQLModel):
-    valor: float
     score_type: str
+    valor: float
     fecha: Optional[date] = None
     comentario: Optional[str] = None
 
