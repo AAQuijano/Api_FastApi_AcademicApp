@@ -154,3 +154,4 @@ class ScorePublic(ScoreBase):
     student_id: int
     subject_id: int
     professor_id: int
+    

@@ -1,12 +1,13 @@
 #scores_routers.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 from app import models, schemas
 from app.db import get_db
 from app.auth.utils import get_role_enum
 
 from app.auth.auth import get_current_user, get_current_professor_user
 from typing import Annotated, List
+import json
 
 
 router = APIRouter(prefix="/calificaciones", tags=["calificaciones"])
@@ -18,7 +19,7 @@ user_dep = Annotated[models.User, Depends(get_current_user)]
 SCORE_NO_FOUND  = "Calificación no encontrada"
 SUBJECT_NO_FOUND = "Materia no encontrada"
 
-@router.post("/", response_model=schemas.ScorePublic, status_code=status.HTTP_201_CREATED)
+@router.post("/Crear_nota", response_model=schemas.ScorePublic, status_code=status.HTTP_201_CREATED)
 def create_score(score: schemas.ScoreCreate, session: session_dep, current_user: professor_dep):
     """Crear nueva calificación para un estudiante en una materia"""
     # Validar que la materia existe y pertenece al profesor
@@ -34,7 +35,7 @@ def create_score(score: schemas.ScoreCreate, session: session_dep, current_user:
     
     # Validar que el estudiante existe y está inscrito
     student = session.get(models.User, score.student_id)
-    if not student or get_role_enum(session, student.role_id) != models.Role.STUDENT:
+    if not student or (get_role_enum(session, student.role_id) != models.Role.STUDENT):
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     
     # Verificar si el estudiante está inscrito en la materia
@@ -81,29 +82,7 @@ def create_score(score: schemas.ScoreCreate, session: session_dep, current_user:
     return db_score
 
 
-# @router.get("/", response_model=List[schemas.ScorePublic])
-# def list_scores(session: session_dep, current_user: user_dep):
-#     """Listar todas las calificaciones (filtradas por rol)"""
-#     current_role = get_role_enum(session, current_user.role_id)
-    
-#     if current_role == models.Role.PROFESSOR:
-#         # Profesores ven solo sus calificaciones
-#         scores = session.exec(
-#             select(models.Score).where(models.Score.professor_id == current_user.user_id)
-#         ).all()
-#     elif current_role == models.Role.STUDENT:
-#         # Estudiantes ven solo sus calificaciones
-#         scores = session.exec(
-#             select(models.Score).where(models.Score.student_id == current_user.user_id)
-#         ).all()
-#     else:
-#         # Admins ven todas
-#         scores = session.exec(select(models.Score)).all()
-    
-#     return scores
-
-
-@router.get("/", status_code=status.HTTP_200_OK)
+@router.get("/Ver_mis_notas/Estudiantes", status_code=status.HTTP_200_OK)
 def my_scores_student(session: session_dep, current_user: user_dep):
     "Ver todas mis notas (Estudiante)"
     user_role = get_role_enum(session, current_user.role_id)
@@ -119,7 +98,46 @@ def my_scores_student(session: session_dep, current_user: user_dep):
 
     return scores
 
-@router.get("/{subject_id}", status_code=status.HTTP_200_OK)
+@router.get("/Ver_notas_por_estudiante/Profesor/{student_id}", response_model=List[schemas.ScorePublic])
+def scores_por_estudiante(
+    student_id: int,
+    session: session_dep,
+    current_user: professor_dep
+):
+    """Obtener todas las calificaciones de un estudiante (Profesor)"""
+    # Validar que el estudiante existe
+    student = session.get(models.User, student_id)
+    if not student or get_role_enum(session, student.role_id) != models.Role.STUDENT:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+
+
+    subjects_of_student = session.exec(
+        select(models.StudentSubjectLink.subject_id)
+        .where(models.StudentSubjectLink.student_id == student_id)
+    ).all()
+
+    if not subjects_of_student:
+        raise HTTPException(status_code=404, detail="Estudiante no esta inscrito en ninguna materia")
+
+
+    valid_subjects = session.exec(
+        select(models.Subject.subject_id)
+        .where(models.Subject.professor_id == current_user.user_id,
+               col(models.Subject.subject_id).in_(subjects_of_student))
+    ).all()
+
+    if not valid_subjects:
+        raise HTTPException(status_code=404, detail="No es parte de sus estudiantes")
+
+    
+    scores = session.exec(
+        select(models.Score)
+        .where(col(models.Score.subject_id).in_(valid_subjects))
+    ).all()
+    
+    return scores
+
+@router.get("/ver_notas_por_materia/Estudiante/{subject_id}", status_code=status.HTTP_200_OK)
 def score_by_subjects(subject_id: int,session: session_dep, current_user: user_dep):
     "Ver notas por materia (Estudiantes)"
 
@@ -147,12 +165,6 @@ def score_by_subjects(subject_id: int,session: session_dep, current_user: user_d
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No estás inscrito en esta materia"
         )
-    
-    # scores = session.exec(
-    #     select(models.Score)
-    #     .with_entities()
-    #     .where(models.Score.student_id == current_user.user_id and models.Score.subject_id == subject_id)
-    #     ).all()
 
     # Helper function to dynamically extract columns from a table
     # def get_columns(table: SQLModel, columns: List[str]):
@@ -186,7 +198,7 @@ def score_by_subjects(subject_id: int,session: session_dep, current_user: user_d
 
 
 
-@router.get("/{score_id}", response_model=schemas.ScorePublic)
+@router.get("/Ver_nota_especifica/{score_id}", response_model=schemas.ScorePublic)
 def get_score(score_id: int, session: session_dep, current_user: user_dep):
     """Obtener una calificación específica"""
     score = session.get(models.Score, score_id)
@@ -196,13 +208,16 @@ def get_score(score_id: int, session: session_dep, current_user: user_dep):
     current_role = get_role_enum(session, current_user.role_id)
 
     # Validar permiso
-    if (current_role == models.Role.PROFESSOR and score.professor_id != current_user.user_id) or (current_role == models.Role.STUDENT and score.student_id != current_user.user_id):
-        raise HTTPException(status_code=403, detail="No tienes permiso para ver esta calificación")
+    if (current_role == models.Role.PROFESSOR and score.professor_id != current_user.user_id):
+        raise HTTPException(status_code=403, detail="Solo puedes ver tu calificaciones")
     
+    if (current_role == models.Role.STUDENT and score.student_id != current_user.user_id):
+        raise HTTPException(status_code=403, detail="Solo puedes ver tu calificaciones")
+
     return score
 
 
-@router.patch("/{score_id}", response_model=schemas.ScorePublic)
+@router.patch("/Actualizar_nota/{score_id}", response_model=schemas.ScorePublic)
 def update_score(
     score_id: int,
     score_update: schemas.ScoreBase,
@@ -229,7 +244,7 @@ def update_score(
     return score
 
 
-@router.delete("/{score_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/Borrar_nota/{score_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_score(score_id: int, session: session_dep, current_user: professor_dep):
     """Eliminar una calificación (solo el profesor que la creó)"""
     score = session.get(models.Score, score_id)
@@ -242,45 +257,22 @@ def delete_score(score_id: int, session: session_dep, current_user: professor_de
             detail="No puedes eliminar calificaciones de otro profesor"
         )
     
+    score_data = json.dumps(score)
+    
     session.delete(score)
     session.commit()
 
-
-@router.get("/por_estudiante/{student_id}", response_model=List[schemas.ScorePublic])
-def scores_por_estudiante(
-    student_id: int,
-    session: session_dep,
-    current_user: user_dep
-):
-    """Obtener todas las calificaciones de un estudiante"""
-    # Validar que el estudiante existe
-    student = session.get(models.User, student_id)
-    if not student or get_role_enum(session, student.role_id) != models.Role.STUDENT:
-        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
-    
-    current_role = get_role_enum(session, current_user.role_id)
-    
-    # Validar permisos
-    if current_role == models.Role.STUDENT and current_user.user_id != student_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo puedes ver tus propias calificaciones"
-        )
-    
-    scores = session.exec(
-        select(models.Score).where(models.Score.student_id == student_id)
-    ).all()
-    
-    return scores
+    return score_data
 
 
-@router.get("/por_materia/{subject_id}", response_model=List[schemas.ScorePublic])
-def scores_por_materia(
+
+@router.get("/Ver_nota_by_materia/Profesor/{subject_id}", response_model=List[schemas.ScorePublic])
+def scores_by_subject_p(
     subject_id: int,
     session: session_dep,
     current_user: user_dep
 ):
-    """Obtener todas las calificaciones de una materia"""
+    """Obtener todas las calificaciones de una materia (Profesor)"""
     # Validar que la materia existe
     subject = session.get(models.Subject, subject_id)
     if not subject:
