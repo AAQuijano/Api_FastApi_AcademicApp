@@ -1,6 +1,8 @@
 #scores_routers.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlmodel import Session, select, col
+from sqlmodel import Session, select, col, desc
+from sqlalchemy.orm import defer
+from sqlalchemy import desc
 from app import models, schemas
 from app.db import get_db
 from app.auth.utils import get_role_enum
@@ -52,21 +54,6 @@ def create_score(score: schemas.ScoreCreate, session: session_dep, current_user:
             detail="El estudiante no está inscrito en esta materia"
         )
     
-    # # Validar duplicado (mismo estudiante, materia y tipo de calificación)
-    # existing_score = session.exec(
-    #     select(models.Score).where(
-    #         models.Score.student_id == score.student_id,
-    #         models.Score.subject_id == score.subject_id,
-    #         models.Score.score_type == score.score_type
-    #     )
-    # ).first()
-
-    # if existing_score:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_409_CONFLICT,
-    #         detail="Ya existe una calificación de este tipo para el estudiante en esta materia"
-    #     )
-    
     if current_user.user_id is None:
         raise HTTPException(status_code=400, detail="Usuario no válido")
 
@@ -99,7 +86,7 @@ def my_scores_student(session: session_dep, current_user: user_dep):
     return scores
 
 @router.get("/Ver_notas_por_estudiante/Profesor/{student_id}", response_model=List[schemas.ScorePublic])
-def scores_por_estudiante(
+def scores_by_estudiante(
     student_id: int,
     session: session_dep,
     current_user: professor_dep
@@ -173,26 +160,14 @@ def score_by_subjects(subject_id: int,session: session_dep, current_user: user_d
     # # Use the helper function to get columns for both tables
     # query = select(*get_columns(Product, product_columns), *get_columns(Line, line_columns)).join(Line)
 
-    # columns = [models.Score.score_id,  
-    #         models.Score.subject_id,
-    #         models.Score.professor_id,
-    #         models.Score.student_id,
-    #         models.Score.score_type,
-    #         models.Score.valor]
-
     scores = session.exec(
-        select([models.Score.score_id,  
-            models.Score.subject_id,
-            models.Score.professor_id,
-            models.Score.student_id,
-            models.Score.score_type,
-            models.Score.valor])
-        .where(
-            models.Score.student_id == current_user.user_id,
-            models.Score.subject_id == subject_id
-        )
+    select(models.Score)
+    .where(
+        models.Score.student_id == current_user.user_id,
+        models.Score.subject_id == subject_id
+    ).limit(20)
     ).all()
-    
+
     return scores
     
 
@@ -270,25 +245,24 @@ def delete_score(score_id: int, session: session_dep, current_user: professor_de
 def scores_by_subject_p(
     subject_id: int,
     session: session_dep,
-    current_user: user_dep
+    current_user: professor_dep
 ):
     """Obtener todas las calificaciones de una materia (Profesor)"""
     # Validar que la materia existe
     subject = session.get(models.Subject, subject_id)
     if not subject:
         raise HTTPException(status_code=404, detail=SUBJECT_NO_FOUND)
-    
-    current_role = get_role_enum(session, current_user.role_id)
+
     
     # Validar permisos
-    if current_role == models.Role.PROFESSOR and subject.professor_id != current_user.user_id:
+    if subject.professor_id != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo puedes ver calificaciones de tus propias materias"
         )
     
     scores = session.exec(
-        select(models.Score).where(models.Score.subject_id == subject_id)
+        select(models.Score).where(models.Score.subject_id == subject_id and models.Score.professor_id == current_user.user_id)
     ).all()
     
     return scores

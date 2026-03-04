@@ -10,7 +10,7 @@
 - [x] Nombres claros en inglés
 - [ ] Comentarios en funciones complejas
 - [x] Manejo básico de errores
-- [ ] Separación models/routes
+- [x] Separación models/routes
 
 ## DOCUMENTACIÓN
 - [x] README.md con setup básico

@@ -27,7 +27,7 @@ def calculate_age(birth_date: Optional[date]) -> Optional[int]:
     return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
 
-@router.post("/", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/Create_user", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreate, session: session_dep, current_user: user_or_no):
     
     # print("🔍 Rol recibido:", user.role)
@@ -112,12 +112,12 @@ def create_user(user: schemas.UserCreate, session: session_dep, current_user: us
         ) from e
 
 
-@router.get("/me", response_model=schemas.UserPublic)
+@router.get("/Read_my_user", response_model=schemas.UserPublic)
 async def read_users_me(current_user: user_dep):
     return convert_user_to_public(current_user)
 
 
-@router.get("/{user_id}", response_model=schemas.UserPublic)
+@router.get("/read_user_id/{user_id}", response_model=schemas.UserPublic)
 async def read_user(user_id: int, session: session_dep, current_user: user_dep):
     if get_role_enum(session, current_user.role_id) != models.Role.ADMIN and current_user.user_id != user_id:
         raise HTTPException(
@@ -180,7 +180,7 @@ async def update_my_user(
     return convert_user_to_public(user)
 
 
-@router.delete("/{user_id}", status_code=status.HTTP_200_OK)
+@router.delete("/Delete_user/{user_id}", status_code=status.HTTP_200_OK)
 async def delete_user(user_id: int, session: session_dep, current_user: admin_dep):
     user = session.get(models.User, user_id)
     if not user:
@@ -194,7 +194,7 @@ async def delete_user(user_id: int, session: session_dep, current_user: admin_de
     }
 
 
-@router.get("/", response_model=list[schemas.UserPublic])
+@router.get("/List_users", response_model=list[schemas.UserPublic])
 async def list_users(
     session: session_dep,
     current_user: admin_dep,

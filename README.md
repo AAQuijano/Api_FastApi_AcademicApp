@@ -71,7 +71,7 @@ source venv/bin/activate  # En Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Configurar variables de entorno en archivo .env
-# DATABASE_URL=mysql+pymysql://admin:Password#0*5@localhost:3306/academicapp
+# DATABASE_URL=mysql+pymysql://{User}:{Password}@localhost:{port}/{db name}
 # SECRET_KEY=tu_secret_key_aqui
 # ALGORITHM=HS256
 # ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -107,38 +107,39 @@ Accede a:
 | POST   | /token   | Iniciar sesión | No   |
 
 ### Usuarios (/usuarios)
-| Método | Endpoint     | Descripción       | Auth | Rol           |
-|--------|--------------|-------------------|------|---------------|
-| POST   | /            | Crear usuario     | No   | Admin/anónimo |
-| GET    | /me          | Mi perfil         | Sí   | Cualquiera    |
-| GET    | /{user_id}   | Usuario por ID    | Sí   | Admin/propio  |
-| PATCH  | /Update_user | Actualizar perfil | Sí   | Cualquiera    |
-| DELETE | /{user_id}   | Eliminar usuario  | Sí   | Admin         |
-| GET    | /            | Listar usuarios   | Sí   | Admin         |
+| Método | Endpoint                | Descripción       | Auth | Rol           |
+|--------|-------------------------|-------------------|------|---------------|
+| POST   | /Create_user            | Crear usuario     | No   | Admin/anónimo |
+| GET    | /Read_my_user           | Mi perfil         | Sí   | Cualquiera    |
+| GET    | /read_user_id/{user_id} | Usuario por ID    | Sí   | Admin/propio  |
+| PATCH  | /Update_user            | Actualizar perfil | Sí   | Cualquiera    |
+| DELETE | /Delete_user/{user_id}  | Eliminar usuario  | Sí   | Admin         |
+| GET    | /List_users             | Listar usuarios   | Sí   | Admin         |
 
 ### Materias (/materias)
-| Método | Endpoint                                    | Descripción   | Auth | Rol      |
-|--------|---------------------------------------------|---------------|------|----------|
-| POST   | /Crear_cursos                               | Crear materia | Sí   | Profesor |
-| GET    | /Lista_de_cursos                            | Listar todas  | Sí   | Admin    |
-| GET    | /Mis_cursos                                 | Mis materias  | Sí   | Profesor |
-| GET    | /{id}/ver_curso                             | Ver materia   | Sí   | Admin    |
-| PATCH  | /{id}/Actualizar_curso                      | Actualizar    | Sí   | Profesor |
-| DELETE | /{id}/Borrar_curso                          | Eliminar      | Sí   | Profesor |
-| GET    | /{id}/Estudiantes_de_curso                  | Estudiantes   | Sí   | Profesor |
-| POST   | /{id}/inscribir_estudiantes                 | Inscribir     | Sí   | Profesor |
-| DELETE | /{id}/desinscribir_estudiantes/{student_id} | Desinscribir  | Sí   | Profesor |
+| Método | Endpoint                                            | Descripción   | Auth | Rol      |
+|--------|-----------------------------------------------------|---------------|------|----------|
+| POST   | /Crear_cursos                                       | Crear materia | Sí   | Profesor |
+| GET    | /Lista_de_cursos                                    | Listar todas  | Sí   | Admin    |
+| GET    | /Mis_cursos                                         | Mis materias  | Sí   | Profesor |
+| GET    | /{subject_id}/ver_curso                             | Ver materia   | Sí   | Admin    |
+| PATCH  | /{subject_id}/Actualizar_curso                      | Actualizar    | Sí   | Profesor |
+| DELETE | /{subject_id}/Borrar_curso                          | Eliminar      | Sí   | Profesor |
+| GET    | /{subject_id}/Estudiantes_de_curso                  | Estudiantes   | Sí   | Profesor |
+| POST   | /{subject_id}/{student_id}/Inscribir_estudiantes    | Inscribir     | Sí   | Profesor |
+| DELETE | /{subject_id}/{student_id}/Desinscribir_estudiantes | Desinscribir  | Sí   | Profesor |
 
-### Calificaciones (/scores)
-| Método | Endpoint             | Descripción        | Auth | Rol            |
-|--------|----------------------|--------------------|------|----------------|
-| POST   | /                    | Crear calificación | Sí   | Profesor       |
-| GET    | /                    | Listar todas       | Sí   | Admin          |
-| GET    | /{score_id}          | Ver por ID         | Sí   | Admin/Profesor |
-| PATCH  | /{score_id}          | Actualizar         | Sí   | Profesor       |
-| DELETE | /{score_id}          | Eliminar           | Sí   | Admin          |
-| GET    | /por_estudiante/{id} | Por estudiante     | Sí   | Admin/Profesor |
-| GET    | /por_materia/{id}    | Por materia        | Sí   | Admin/Profesor |
+### Calificaciones (/calificaciones)
+| Método | Endpoint                                        | Descripción                    | Auth | Rol                       |
+|--------|-------------------------------------------------|--------------------------------|------|---------------------------|
+| POST   | /Crear_nota                                     | Crear calificación             | Sí   | Profesor                  |
+| GET    | /Ver_mis_notas/Estudiantes                      | Mis notas (estudiante)         | Sí   | Estudiante                | 
+| GET    | /Ver_notas_por_estudiante/Profesor/{student_id} | Notas por estudiante           | Sí   | Profesor                  |
+| GET    | /ver_notas_por_materia/Estudiante/{subject_id}  | Notas por materia (estudiante) | Sí   | Estudiante                |
+| GET    | /Ver_nota_especifica/{score_id}                 | Ver nota específica            | Sí   | Admin/Profesor/Estudiante |
+| PATCH  | /Actualizar_nota/{score_id}                     | Actualizar nota                | Sí   | Profesor                  |
+| DELETE | /Borrar_nota/{score_id}                         | Eliminar nota                  | Sí   | Profesor                  |
+| GET    | /Ver_nota_by_materia/Profesor/{subject_id}      | Notas por materia (profesor)   | Sí   | Profesor                  |
 
 ---
 
